@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ProjectAnalyzer": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\ProjectAnalyzer"
+    }
+  }
+}
