@@ -40,20 +40,11 @@ CoreMethods.GenerateDependencyGraph(result.ProjectName, result.FolderDependencie
 // Convert to XML-friendly structure
 var resultXml = XMLService.PrepareScanResultForXml(result);
 
-string outputFolder = "C:\\ProjectAnalyzer\\AnalysisOutput";
+var outputFolder = AnalyzerPaths.GetProjectOutputFolder(result.ProjectName);
 
 // Save XML
 var outputXml = Path.Combine(outputFolder, $"{result.ProjectName}_ScanResult.xml");
 XMLService.SaveScanResultToXml(resultXml, outputXml);
 Console.WriteLine($"Scan result saved to {outputXml}");
 
-
-var outputDatabaseDependencies = Path.Combine(outputFolder, $"{result.ProjectName}_database_dependencies.dot");
-CoreMethods.GenerateDatabaseDependencyGraph(result.DatabaseDependencies, outputDatabaseDependencies);
-
-Console.WriteLine("Database dependencies found:");
-
-foreach (var kvp in result.DatabaseDependencies)
-{
-    Console.WriteLine($"{kvp.Key} -> {string.Join(", ", kvp.Value)}");
-}
+CoreMethods.GenerateDatabaseDependencyGraph(result.DatabaseDependencies, result.ProjectName);

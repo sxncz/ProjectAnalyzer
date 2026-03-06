@@ -128,6 +128,15 @@ namespace ProjectAnalyzer.Reporting
                 }
             }
 
+            Console.WriteLine("------------------------------");
+
+            Console.WriteLine("Database dependencies found:");
+
+            foreach (var kvp in result.DatabaseDependencies)
+            {
+                Console.WriteLine($"{kvp.Key} -> {string.Join(", ", kvp.Value)}");
+            }
+
             Console.WriteLine();
         }
     }

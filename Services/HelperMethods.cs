@@ -1,4 +1,6 @@
-﻿namespace ProjectAnalyzer.Services
+﻿using System.Diagnostics;
+
+namespace ProjectAnalyzer.Services
 {
     public static class HelperMethods
     {
@@ -88,5 +90,25 @@
             stack.Remove(folder);
             return false;
         }
+
+        public static (string dotPath, string pngPath) GetGraphPaths(string outputFolder, string fileName)
+        {
+            var dotPath = Path.Combine(outputFolder, $"{fileName}.dot");
+            var pngPath = Path.Combine(outputFolder, $"{fileName}.png");
+
+            return (dotPath, pngPath);
+        }
+
+        public static void ConvertDotToPng(string dotPath, string pngPath)
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "dot",
+                Arguments = $"-Tpng \"{dotPath}\" -o \"{pngPath}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+        }
+
     }
 }

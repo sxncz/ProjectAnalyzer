@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ProjectAnalyzer.Core;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -9,6 +10,9 @@ namespace ProjectAnalyzer.Services
 {
     public class CoreMethods
     {
+
+        //private const string outputFolder = AnalyzerPaths.GetProjectOutputFolder(projectName);
+
         public static List<string> DetectLayerViolations(
            string currentFolder,
            string relativePath,
@@ -85,15 +89,14 @@ namespace ProjectAnalyzer.Services
             string outputDotPath,
             double riskThreshold = 10.0)
         {
-            string outputFolder = "C:\\ProjectAnalyzer\\AnalysisOutput";
+            var outputFolder = AnalyzerPaths.GetProjectOutputFolder(projectName);
 
             Directory.CreateDirectory(outputFolder);
 
             foreach (var c in Path.GetInvalidFileNameChars())
                 projectName = projectName.Replace(c, '_');
 
-            var dotPath = Path.Combine(outputFolder, $"{projectName}_dependencies.dot");
-            var pngPath = Path.Combine(outputFolder, $"{projectName}_dependencies.png");
+            var (dotPath, pngPath) = HelperMethods.GetGraphPaths(outputFolder, $"{projectName}_dependencies");
 
             //--- Folder Level ---
             //Generate DOT file
@@ -146,16 +149,10 @@ namespace ProjectAnalyzer.Services
                 writer.WriteLine("}");
             }
 
-            //Generate PNG using Graphviz
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = "dot",
-                Arguments = $"-Tpng \"{dotPath}\" -o \"{pngPath}\"",
-                UseShellExecute = false,
-                CreateNoWindow = true
-            });
+            HelperMethods.ConvertDotToPng(dotPath, pngPath);    
 
             Console.WriteLine($"Dependency diagram saved to: {pngPath}");
+            Console.WriteLine();
         }
 
         public static List<string> ExtractClassNames(string content)
@@ -219,24 +216,30 @@ namespace ProjectAnalyzer.Services
             return fileDependencies;
         }
 
-        public static void GenerateDatabaseDependencyGraph(Dictionary<string, HashSet<string>> dbDependencies,string outputFile)
+        public static void GenerateDatabaseDependencyGraph(Dictionary<string, HashSet<string>> dbDependencies,string projectName)
         {
-            var lines = new List<string>
-            {
-                "digraph DatabaseDependencies {"
-            };
+            var outputFolder = AnalyzerPaths.GetProjectOutputFolder(projectName);
 
-            foreach (var table in dbDependencies)
+            Directory.CreateDirectory(outputFolder);
+
+            var (dotPath, pngPath) = HelperMethods.GetGraphPaths(outputFolder, $"{projectName}_database_dependencies");
+
+            using (var writer = new StreamWriter(dotPath))
             {
-                foreach (var dep in table.Value)
+                writer.WriteLine("digraph DatabaseDependencies {");
+
+                foreach (var kvp in dbDependencies)
                 {
-                    lines.Add($"    \"{table.Key}\" -> \"{dep}\";");
+                    foreach (var table in kvp.Value)
+                    {
+                        writer.WriteLine($"\"{kvp.Key}\" -> \"{table}\";");
+                    }
                 }
+
+                writer.WriteLine("}");
             }
 
-            lines.Add("}");
-
-            File.WriteAllLines(outputFile, lines);
+            HelperMethods.ConvertDotToPng(dotPath, pngPath);
         }
     }
 }
