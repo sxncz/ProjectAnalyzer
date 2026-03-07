@@ -2,13 +2,17 @@
 using ProjectAnalyzer.Reporting;
 using ProjectAnalyzer.Services;
 
+string path;
+
 if (args.Length == 0)
 {
-    Console.WriteLine("Please provide a project path.");
-    return;
+    Console.WriteLine("Enter project path:");
+    path = Console.ReadLine()!;
 }
-
-var path = args[0];
+else
+{
+    path = args[0];
+}
 
 if (!Directory.Exists(path))
 {
@@ -16,11 +20,14 @@ if (!Directory.Exists(path))
     return;
 }
 
-// Check for .csproj
+// Check for .csproj or .sql files before proceeding
 if (!Directory.GetFiles(path, "*.csproj").Any())
 {
-    Console.WriteLine("No .csproj file found in the provided directory.");
-    return;
+    Console.WriteLine("Warning: No .csproj file found in the provided directory.");
+}
+else if(!Directory.GetFiles(path, "*.sql").Any())
+{
+    Console.WriteLine("Warning: No .sql file found in the provided directory.");
 }
 
 var scanner = new ProjectScanner();
@@ -32,11 +39,17 @@ result.DatabaseDependencies = dbDependencies;
 var reporter = new ConsoleReporter();
 reporter.Print(result);
 
-#pragma warning disable CS8604 // Possible null reference argument.
-CoreMethods.GenerateDependencyGraph(result.ProjectName, result.FolderDependencies, result.FileDependencies, result.CircularDependencies, result.RiskScores, "dependencies.dot", 10.0);
-#pragma warning restore CS8604 // Possible null reference argument.
+// Ensure FolderDependencies is not null before passing to GenerateDependencyGraph
+CoreMethods.GenerateDependencyGraph(
+    result.ProjectName,
+    result.FolderDependencies ?? new Dictionary<string, HashSet<string>>(),
+    result.FileDependencies,
+    result.CircularDependencies,
+    result.RiskScores,
+    "dependencies.dot",
+    10.0
+);
 
-//newly added
 // Convert to XML-friendly structure
 var resultXml = XMLService.PrepareScanResultForXml(result);
 
@@ -48,3 +61,6 @@ XMLService.SaveScanResultToXml(resultXml, outputXml);
 Console.WriteLine($"Scan result saved to {outputXml}");
 
 CoreMethods.GenerateDatabaseDependencyGraph(result.DatabaseDependencies, result.ProjectName);
+
+Console.WriteLine("Press any key to exit...");
+Console.ReadKey();

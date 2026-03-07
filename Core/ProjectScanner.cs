@@ -56,6 +56,7 @@ namespace ProjectAnalyzer.Services
             _folderDependencies.Clear();
             _fileDependencies.Clear();
             _classToFileMap.Clear();
+            _databaseDependencies.Clear();
 
             _rootPath = rootPath;
 

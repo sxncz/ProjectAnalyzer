@@ -35,7 +35,7 @@ namespace ProjectAnalyzer.Services
                     .Select(kvp => new KeyValueInt { Key = kvp.Key, Value = kvp.Value })
                     .ToList(),
                 LayerViolations = result.LayerViolations,
-                FolderDependencies = result.FolderDependencies
+                FolderDependencies = (result.FolderDependencies ?? new Dictionary<string, HashSet<string>>())
                     .Select(kvp => new KeyValueStringList { Key = kvp.Key, Value = kvp.Value.ToList() })
                     .ToList(),
                 FileDependencies = result.FileDependencies
