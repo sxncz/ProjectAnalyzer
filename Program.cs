@@ -30,6 +30,15 @@ else if(!Directory.GetFiles(path, "*.sql").Any())
     Console.WriteLine("Warning: No .sql file found in the provided directory.");
 }
 
+if (!EnvironmentValidator.IsGraphvizInstalled(out var dotPath))
+{
+    Console.WriteLine("Graphviz is not installed or 'dot' is not in your PATH.");
+    Console.WriteLine("Please install Graphviz from https://graphviz.org/download/ and make sure 'dot.exe' is in your system PATH.");
+    Console.WriteLine("Press any key to exit...");
+    Console.ReadKey();
+    return;
+}
+
 var scanner = new ProjectScanner();
 var result = scanner.Scan(path);
 
