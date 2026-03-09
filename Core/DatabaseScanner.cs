@@ -13,7 +13,7 @@ namespace ProjectAnalyzer.Core
         {
             var dbDependencies = new Dictionary<string, HashSet<string>>();
 
-            var csFiles = Directory.GetFiles(rootPath, "*.sql", SearchOption.AllDirectories);
+            var csFiles = Directory.GetFiles(rootPath, "*.sql", SearchOption.AllDirectories).Where(f => !f.Contains("\\bin\\") && !f.Contains("\\obj\\")).ToList();
 
             foreach (var file in csFiles)
             {

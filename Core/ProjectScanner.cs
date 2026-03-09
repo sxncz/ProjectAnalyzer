@@ -13,7 +13,8 @@ namespace ProjectAnalyzer.Services
         {
             "bin",
             "obj",
-            ".git"
+            ".git",
+            ".vs"
         };
 
         private readonly List<(string Path, long Size)> _csFiles = new();

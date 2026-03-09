@@ -10,9 +10,6 @@ namespace ProjectAnalyzer.Services
 {
     public class CoreMethods
     {
-
-        //private const string outputFolder = AnalyzerPaths.GetProjectOutputFolder(projectName);
-
         public static List<string> DetectLayerViolations(
            string currentFolder,
            string relativePath,
@@ -81,6 +78,7 @@ namespace ProjectAnalyzer.Services
         }
 
         public static void GenerateDependencyGraph(
+            string outputFolder,
             string projectName,
             Dictionary<string, HashSet<string>> folderDependencies,
             Dictionary<string, HashSet<string>> fileDependencies,
@@ -89,8 +87,6 @@ namespace ProjectAnalyzer.Services
             string outputDotPath,
             double riskThreshold = 10.0)
         {
-            var outputFolder = AnalyzerPaths.GetProjectOutputFolder(projectName);
-
             Directory.CreateDirectory(outputFolder);
 
             foreach (var c in Path.GetInvalidFileNameChars())
@@ -216,11 +212,9 @@ namespace ProjectAnalyzer.Services
             return fileDependencies;
         }
 
-        public static void GenerateDatabaseDependencyGraph(Dictionary<string, HashSet<string>> dbDependencies,string projectName)
+        public static void GenerateDatabaseDependencyGraph(Dictionary<string, HashSet<string>> dbDependencies, string projectName, string outputFolder)
         {
-            var outputFolder = AnalyzerPaths.GetProjectOutputFolder(projectName);
-
-            Directory.CreateDirectory(outputFolder);
+           Directory.CreateDirectory(outputFolder);
 
             var (dotPath, pngPath) = HelperMethods.GetGraphPaths(outputFolder, $"{projectName}_database_dependencies");
 

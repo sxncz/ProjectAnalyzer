@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace ProjectAnalyzer.Services
 {
@@ -20,34 +22,9 @@ namespace ProjectAnalyzer.Services
 
         public static int CountMethods(string content)
         {
-            int count = 0;
+            var pattern = @"\b(public|private|protected|internal)\s+(async\s+)?(static\s+)?(virtual\s+|override\s+)?[\w<>\[\]]+\s+\w+\s*\(";
 
-            var lines = content.Split('\n');
-
-            foreach (var line in lines)
-            {
-                var trimmed = line.Trim();
-
-                if (
-                    (trimmed.StartsWith("public ") ||
-                     trimmed.StartsWith("private ") ||
-                     trimmed.StartsWith("protected ") ||
-                     trimmed.StartsWith("internal "))
-                    &&
-                    trimmed.Contains("(")
-                    &&
-                    trimmed.Contains(")")
-                    &&
-                    !trimmed.Contains("class ") &&
-                    !trimmed.Contains("interface ") &&
-                    !trimmed.Contains("record ")
-                   )
-                {
-                    count++;
-                }
-            }
-
-            return count;
+            return Regex.Matches(content, pattern).Count;
         }
 
         public static List<string> DetectCircularDependencies(Dictionary<string, HashSet<string>> folderDependencies)
@@ -101,13 +78,22 @@ namespace ProjectAnalyzer.Services
 
         public static void ConvertDotToPng(string dotPath, string pngPath)
         {
-            Process.Start(new ProcessStartInfo
+            using var process = Process.Start(new ProcessStartInfo
             {
                 FileName = "dot",
                 Arguments = $"-Tpng \"{dotPath}\" -o \"{pngPath}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true
             });
+
+            if (process != null)
+            {
+                process.WaitForExit();
+            }
+            else
+            {
+                throw new InvalidOperationException("Failed to start 'dot' process.");
+            }
         }
 
     }
