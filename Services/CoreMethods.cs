@@ -1,15 +1,11 @@
 ﻿using ProjectAnalyzer.Core;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using ProjectAnalyzer.Reporting;
 
 namespace ProjectAnalyzer.Services
 {
     public class CoreMethods
     {
+        //Business Logic
         public static List<string> DetectLayerViolations(
            string currentFolder,
            string relativePath,
@@ -37,6 +33,7 @@ namespace ProjectAnalyzer.Services
             return violations;
         }
 
+        //Manipulation
         public static void PopulateFolderDependencies(
             string currentFolder,
             string content,
@@ -55,6 +52,7 @@ namespace ProjectAnalyzer.Services
             }
         }
 
+        //BL
         public static Dictionary<string, double> CalculateRiskScores(
             List<(string Path, long Size)> csFiles,
             Dictionary<string, int> linesPerFile,
@@ -77,7 +75,8 @@ namespace ProjectAnalyzer.Services
             return riskScores;
         }
 
-        public static void GenerateDependencyGraph(
+        //Manipulation
+        public static void GenerateGranularDependencyGraph(
             string outputFolder,
             string projectName,
             Dictionary<string, HashSet<string>> folderDependencies,
@@ -145,12 +144,89 @@ namespace ProjectAnalyzer.Services
                 writer.WriteLine("}");
             }
 
-            HelperMethods.ConvertDotToPng(dotPath, pngPath);    
+            HelperMethods.ConvertDotToPng(dotPath, pngPath);
 
             Console.WriteLine($"Dependency diagram saved to: {pngPath}");
             Console.WriteLine();
         }
 
+        //Manipulation
+        public static void GenerateHighLevelDependencyGraph(
+            string projectName,
+            Dictionary<string, HashSet<string>> folderDependencies,
+            Dictionary<string, HashSet<string>> fileDependencies,
+            List<string> circularDependencies,
+            Dictionary<string, double> riskScores,
+            string outputDotPath,
+            double riskThreshold = 10.0)
+        {
+            var outputFolder = AnalyzerPaths.GetProjectOutputFolder(projectName);
+
+            Directory.CreateDirectory(outputFolder);
+
+            foreach (var c in Path.GetInvalidFileNameChars())
+                projectName = projectName.Replace(c, '_');
+
+            var (dotPath, pngPath) = HelperMethods.GetGraphPaths(outputFolder, $"{projectName}_dependencies");
+
+            //--- Folder Level ---
+            //Generate DOT file
+            using (var writer = new StreamWriter(dotPath))
+            {
+                writer.WriteLine("digraph ProjectDependencies {");
+                writer.WriteLine("    rankdir=LR;");
+                writer.WriteLine("    node [shape=box, style=filled, color=lightgray];");
+
+                foreach (var kvp in folderDependencies)
+                {
+                    var fromFolder = kvp.Key;
+
+                    var fromColor = (riskScores != null &&
+                                     riskScores.ContainsKey(fromFolder) &&
+                                     riskScores[fromFolder] >= riskThreshold)
+                        ? "orange"
+                        : "lightgray";
+
+                    writer.WriteLine($"    \"{fromFolder}\" [fillcolor={fromColor}];");
+
+                    foreach (var toFolder in kvp.Value)
+                    {
+                        var edgeColor = (circularDependencies != null &&
+                                         circularDependencies.Any(c =>
+                                             c.Contains(fromFolder) && c.Contains(toFolder)))
+                            ? "red"
+                            : "black";
+
+                        writer.WriteLine($"    \"{fromFolder}\" -> \"{toFolder}\" [color={edgeColor}];");
+                    }
+                }
+
+                // --- File level ---
+                if (fileDependencies != null)
+                {
+                    foreach (var kvp in fileDependencies)
+                    {
+                        var fromFile = kvp.Key;
+                        writer.WriteLine($"    \"{fromFile}\" [fillcolor=lightblue];");
+
+                        foreach (var toFile in kvp.Value)
+                        {
+                            var edgeColor = "black";
+                            writer.WriteLine($"    \"{fromFile}\" -> \"{toFile}\" [color={edgeColor}];");
+                        }
+                    }
+                }
+
+                writer.WriteLine("}");
+            }
+
+            HelperMethods.ConvertDotToPng(dotPath, pngPath);
+
+            Console.WriteLine($"Dependency diagram saved to: {pngPath}");
+            Console.WriteLine();
+        }
+
+        //Manipulation
         public static List<string> ExtractClassNames(string content)
         {
             var result = new List<string>();
@@ -177,6 +253,7 @@ namespace ProjectAnalyzer.Services
             return result;
         }
 
+        //BL
         public static Dictionary<string, HashSet<string>> BuildFileDependencies(string rootPath, List<(string Path, long Size)> csFiles, Dictionary<string, string> classToFileMap)
         {
             var fileDependencies = new Dictionary<string, HashSet<string>>();
@@ -212,9 +289,10 @@ namespace ProjectAnalyzer.Services
             return fileDependencies;
         }
 
-        public static void GenerateDatabaseDependencyGraph(Dictionary<string, HashSet<string>> dbDependencies, string projectName, string outputFolder)
+        //Manipulation
+        public static void GenerateGranularDatabaseDependencyGraph(Dictionary<string, HashSet<string>> dbDependencies, string projectName, string outputFolder)
         {
-           Directory.CreateDirectory(outputFolder);
+            Directory.CreateDirectory(outputFolder);
 
             var (dotPath, pngPath) = HelperMethods.GetGraphPaths(outputFolder, $"{projectName}_database_dependencies");
 
@@ -234,6 +312,141 @@ namespace ProjectAnalyzer.Services
             }
 
             HelperMethods.ConvertDotToPng(dotPath, pngPath);
+        }
+
+        //Manipulation
+        public static void GenerateHighLevelDatabaseDependencyGraph(Dictionary<string, HashSet<string>> dbDependencies, string projectName)
+        {
+            var outputFolder = AnalyzerPaths.GetProjectOutputFolder(projectName);
+
+            Directory.CreateDirectory(outputFolder);
+
+            var (dotPath, pngPath) = HelperMethods.GetGraphPaths(outputFolder, $"{projectName}_database_dependencies");
+
+            using (var writer = new StreamWriter(dotPath))
+            {
+                writer.WriteLine("digraph DatabaseDependencies {");
+
+                foreach (var kvp in dbDependencies)
+                {
+                    foreach (var table in kvp.Value)
+                    {
+                        writer.WriteLine($"\"{kvp.Key}\" -> \"{table}\";");
+                    }
+                }
+
+                writer.WriteLine("}");
+            }
+
+            HelperMethods.ConvertDotToPng(dotPath, pngPath);
+        }
+
+        //BL
+        public static void RunHighLevelView(string path)
+        {
+            var scanner = new ProjectScanner();
+            var result = scanner.Scan(path);
+
+            var dbDependencies = DatabaseScanner.BuildDatabaseDependencies(path);
+            result.DatabaseDependencies = dbDependencies;
+
+            var reporter = new ConsoleReporter();
+            reporter.Print(result);
+
+            // Ensure FolderDependencies is not null before passing to GenerateDependencyGraph
+            GenerateHighLevelDependencyGraph(
+                result.ProjectName,
+                result.FolderDependencies ?? new Dictionary<string, HashSet<string>>(),
+                result.FileDependencies,
+                result.CircularDependencies,
+                result.RiskScores,
+                "dependencies.dot",
+                10.0
+            );
+
+            // Convert to XML-friendly structure
+            var resultXml = XMLService.PrepareScanResultForXml(result);
+
+            var outputFolder = AnalyzerPaths.GetProjectOutputFolder(result.ProjectName);
+
+            // Save XML
+            var outputXml = Path.Combine(outputFolder, $"{result.ProjectName}_ScanResult.xml");
+            XMLService.SaveScanResultToXml(resultXml, outputXml);
+            Console.WriteLine($"Scan result saved to {outputXml}");
+
+            GenerateHighLevelDatabaseDependencyGraph(result.DatabaseDependencies, result.ProjectName);
+        }
+
+        //BL
+        public static void RunGranularView(string path)
+        {
+            // Find all projects
+            var csprojFiles = Directory.GetFiles(path, "*.csproj", SearchOption.AllDirectories);
+
+            if (!csprojFiles.Any())
+            {
+                Console.WriteLine("No .csproj files found in this directory.");
+                Console.WriteLine("Press any key to exit...");
+                Console.ReadKey();
+                return;
+            }
+
+            Console.WriteLine($"Found {csprojFiles.Length} projects.");
+
+            var rootProjectName = Path.GetFileName(path);
+
+            var scanner = new ProjectScanner();
+
+            foreach (var csproj in csprojFiles)
+            {
+                var projectFolder = Path.GetDirectoryName(csproj);
+                if (projectFolder == null)
+                    continue;
+
+                Console.WriteLine($"\nScanning project: {csproj}");
+
+                var result = scanner.Scan(projectFolder);
+
+                var dbDependencies = DatabaseScanner.BuildDatabaseDependencies(projectFolder);
+                result.DatabaseDependencies = dbDependencies;
+
+                var reporter = new ConsoleReporter();
+                reporter.Print(result);
+
+                var projectFolderName = new DirectoryInfo(projectFolder).Name;
+
+                var outputFolder = Path.Combine(
+                    "C:\\ProjectAnalyzer\\AnalysisOutput",
+                    rootProjectName,
+                    projectFolderName
+                );
+
+                Directory.CreateDirectory(outputFolder);
+
+                // Ensure FolderDependencies is not null before passing to GenerateDependencyGraph  
+                CoreMethods.GenerateGranularDependencyGraph(
+                    outputFolder,
+                    result.ProjectName,
+                    result.FolderDependencies ?? new Dictionary<string, HashSet<string>>(),
+                    result.FileDependencies,
+                    result.CircularDependencies,
+                    result.RiskScores,
+                    "dependencies.dot",
+                    10.0
+                );
+
+                // Convert to XML-friendly structure
+                var resultXml = XMLService.PrepareScanResultForXml(result);
+
+                // Save XML
+                var outputXml = Path.Combine(outputFolder, $"{result.ProjectName}_ScanResult.xml");
+                XMLService.SaveScanResultToXml(resultXml, outputXml);
+                Console.WriteLine($"Scan result saved to {outputXml}");
+
+                GenerateGranularDatabaseDependencyGraph(result.DatabaseDependencies, result.ProjectName, outputFolder);
+            }
+
+            Console.WriteLine("\nAll projects scanned successfully.");
         }
     }
 }

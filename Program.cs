@@ -26,7 +26,7 @@ if (!Directory.GetFiles(path, "*.csproj", SearchOption.AllDirectories).Any())
 {
     Console.WriteLine("Warning: No .csproj file found in the provided directory.");
 }
-else if(!Directory.GetFiles(path, "*.sql", SearchOption.AllDirectories).Any())
+else if (!Directory.GetFiles(path, "*.sql", SearchOption.AllDirectories).Any())
 {
     Console.WriteLine("Warning: No .sql file found in the provided directory.");
 }
@@ -40,74 +40,38 @@ if (!EnvironmentValidator.IsGraphvizInstalled(out var dotPath))
     return;
 }
 
-// Find all projects
-var csprojFiles = Directory.GetFiles(path, "*.csproj", SearchOption.AllDirectories);
+string choice;
 
-if (!csprojFiles.Any())
+while (true)
 {
-    Console.WriteLine("No .csproj files found in this directory.");
-    Console.WriteLine("Press any key to exit...");
-    Console.ReadKey();
-    return;
+    Console.WriteLine("Choose analysis type:");
+    Console.WriteLine("1 - High Level View");
+    Console.WriteLine("2 - Granular View");
+    Console.Write("Enter choice: ");
+
+    choice = Console.ReadLine();
+
+    if (choice == "1" || choice == "2")
+        break;
+
+    Console.WriteLine("Invalid choice. Please enter 1 or 2 or press CTRL + C to exit.\n");
 }
 
-Console.WriteLine($"Found {csprojFiles.Length} projects.");
-
-var rootProjectName = Path.GetFileName(path);
-
-foreach (var csproj in csprojFiles)
+switch (choice)
 {
-    var projectFolder = Path.GetDirectoryName(csproj);
-    if (projectFolder == null)
-        continue;
+    case "1":
+        CoreMethods.RunHighLevelView(path);
+        break;
 
-    Console.WriteLine($"\nScanning project: {csproj}");
+    case "2":
+        CoreMethods.RunGranularView(path);
+        break;
 
-
-    var scanner = new ProjectScanner();
-    var result = scanner.Scan(projectFolder);
-
-    var dbDependencies = DatabaseScanner.BuildDatabaseDependencies(projectFolder);
-    result.DatabaseDependencies = dbDependencies;
-
-    var reporter = new ConsoleReporter();
-    reporter.Print(result);
-
-    var projectFolderName = new DirectoryInfo(projectFolder).Name;
-
-    var outputFolder = Path.Combine(
-        "C:\\ProjectAnalyzer\\AnalysisOutput",
-        rootProjectName,
-        projectFolderName
-    );
-
-    Directory.CreateDirectory(outputFolder);
-
-    var dotPathOutput = Path.Combine(outputFolder, "dependencies.dot");
-
-    // Ensure FolderDependencies is not null before passing to GenerateDependencyGraph  
-    CoreMethods.GenerateDependencyGraph(
-        outputFolder,
-        result.ProjectName,
-        result.FolderDependencies ?? new Dictionary<string, HashSet<string>>(),
-        result.FileDependencies,
-        result.CircularDependencies,
-        result.RiskScores,
-        "dependencies.dot",
-        10.0
-    );
-
-    // Convert to XML-friendly structure
-    var resultXml = XMLService.PrepareScanResultForXml(result);
-
-    // Save XML
-    var outputXml = Path.Combine(outputFolder, $"{result.ProjectName}_ScanResult.xml");
-    XMLService.SaveScanResultToXml(resultXml, outputXml);
-    Console.WriteLine($"Scan result saved to {outputXml}");
-
-    CoreMethods.GenerateDatabaseDependencyGraph(result.DatabaseDependencies, result.ProjectName, outputFolder);
+    default:
+        Console.WriteLine("Invalid choice.");
+        return;
 }
 
-Console.WriteLine("\nAll projects scanned successfully.");
+
 Console.WriteLine("Press any key to exit...");
 Console.ReadKey();
