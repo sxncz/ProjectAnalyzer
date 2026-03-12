@@ -2,7 +2,7 @@
   "profiles": {
     "ProjectAnalyzer": {
       "commandName": "Project",
-      "commandLineArgs": "C:\\BlogManager-ApiBackend\\BusinessLayer"
+      "commandLineArgs": "C:\\BlogManager-ApiBackend"
     }
   }
 }

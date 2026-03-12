@@ -78,23 +78,29 @@ namespace ProjectAnalyzer.Services
 
         public static void ConvertDotToPng(string dotPath, string pngPath)
         {
-            using var process = Process.Start(new ProcessStartInfo
+            using var process = new Process();
+
+            process.StartInfo = new ProcessStartInfo
             {
                 FileName = "dot",
                 Arguments = $"-Tpng \"{dotPath}\" -o \"{pngPath}\"",
                 UseShellExecute = false,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
                 CreateNoWindow = true
-            });
+            };
 
-            if (process != null)
+            process.Start();
+            process.WaitForExit();
+
+            string error = process.StandardError.ReadToEnd();
+            string output = process.StandardOutput.ReadToEnd();
+
+            if (process.ExitCode != 0)
             {
-                process.WaitForExit();
-            }
-            else
-            {
-                throw new InvalidOperationException("Failed to start 'dot' process.");
+                throw new Exception($"Graphviz failed: {error}");
             }
         }
-
     }
 }
+

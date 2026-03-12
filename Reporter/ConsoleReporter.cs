@@ -1,13 +1,23 @@
-﻿using ProjectAnalyzer.Services;
-using ProjectAnalzer.Core;
-using System;
+﻿using ProjectAnalzer.Core;
 
-namespace ProjectAnalyzer.Reporting
+namespace ProjectAnalyzer.Reporter
 {
-    public class ConsoleReporter
+    public class ConsoleReporter : IReporter
     {
         public void Print(ScanResult result)
         {
+            //Console.WriteLine($"Project: {result.ProjectName}");
+            //Console.WriteLine($"Files scanned: {result.FileDependencies.Count}");
+
+            //if (result.CircularDependencies.Any())
+            //{
+            //    Console.WriteLine("Circular Dependencies:");
+            //    foreach (var dep in result.CircularDependencies)
+            //    {
+            //        Console.WriteLine(dep);
+            //    }
+            //}
+
             Console.WriteLine();
             Console.WriteLine($"Project: {result.ProjectName}");
             Console.WriteLine("------------------------------");

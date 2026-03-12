@@ -1,5 +1,6 @@
-﻿using ProjectAnalyzer.Core;
-using ProjectAnalyzer.Reporting;
+﻿using ProjectAnalyzer.AnalysisStrategy;
+using ProjectAnalyzer.Graph;
+using ProjectAnalyzer.Reporter;
 using ProjectAnalyzer.Services;
 
 string path;
@@ -49,7 +50,7 @@ while (true)
     Console.WriteLine("2 - Granular View");
     Console.Write("Enter choice: ");
 
-    choice = Console.ReadLine();
+    choice = Console.ReadLine() ?? string.Empty;
 
     if (choice == "1" || choice == "2")
         break;
@@ -57,21 +58,20 @@ while (true)
     Console.WriteLine("Invalid choice. Please enter 1 or 2 or press CTRL + C to exit.\n");
 }
 
-switch (choice)
+IReporter reporter = new ProjectAnalyzer.Reporter.ConsoleReporter();
+IGraphGenerator graphGenerator = new GraphvizGenerator();
+IDatabaseGraphGenerator dbGraphGenerator = (IDatabaseGraphGenerator)graphGenerator;
+
+IAnalysisStrategy strategy = choice switch
 {
-    case "1":
-        CoreMethods.RunHighLevelView(path);
-        break;
+    "1" => new HighLevelAnalysis(reporter, graphGenerator, dbGraphGenerator),
+    "2" => new GranularAnalysis(reporter, graphGenerator, dbGraphGenerator),
+    _ => throw new Exception()
+};
 
-    case "2":
-        CoreMethods.RunGranularView(path);
-        break;
+var runner = new AnalysisRunner(strategy);
 
-    default:
-        Console.WriteLine("Invalid choice.");
-        return;
-}
-
+runner.Execute(path);
 
 Console.WriteLine("Press any key to exit...");
 Console.ReadKey();

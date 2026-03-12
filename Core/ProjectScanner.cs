@@ -1,9 +1,7 @@
-﻿using ProjectAnalyzer.Services;
+﻿using ProjectAnalyzer.DependencyBuilder;
+using ProjectAnalyzer.LayerViolation;
+using ProjectAnalyzer.RiskCalculator;
 using ProjectAnalzer.Core;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 
 namespace ProjectAnalyzer.Services
 {
@@ -43,6 +41,22 @@ namespace ProjectAnalyzer.Services
 
         private int _deepestLevel = 0;
 
+        private readonly ILayerViolationDetector _layerViolationDetector;
+        
+        private readonly IRiskCalculator _riskCalculator;
+
+        private readonly IDependencyBuilder _dependencyBuilder;
+
+        public ProjectScanner(
+            ILayerViolationDetector layerViolationDetector,
+            IRiskCalculator riskCalculator,
+            IDependencyBuilder dependencyBuilder)
+        {
+            _layerViolationDetector = layerViolationDetector;
+            _riskCalculator = riskCalculator;
+            _dependencyBuilder = dependencyBuilder;
+        }
+
         public ScanResult Scan(string rootPath)
         {
             _folderCount = 0;
@@ -78,9 +92,9 @@ namespace ProjectAnalyzer.Services
                 LinesPerFile = _linesPerFile,
                 LayerViolations = _layerViolations,
                 FolderDependencies = _folderDependencies,
-                FileDependencies = CoreMethods.BuildFileDependencies(_rootPath, _csFiles, _classToFileMap), 
+                FileDependencies = _dependencyBuilder.BuildFileDependencies(_rootPath, _csFiles, _classToFileMap),
                 CircularDependencies = HelperMethods.DetectCircularDependencies(_folderDependencies),
-                RiskScores = CoreMethods.CalculateRiskScores(_csFiles, _linesPerFile, _methodsPerFile, _classesPerFile),
+                RiskScores = _riskCalculator.CalculateRiskScores(_csFiles, _linesPerFile, _methodsPerFile, _classesPerFile),
                 DatabaseDependencies = _databaseDependencies,
             };
 
@@ -127,11 +141,11 @@ namespace ProjectAnalyzer.Services
 
                 var currentFolder = new DirectoryInfo(path).Name;
 
-                _layerViolations.AddRange(CoreMethods.DetectLayerViolations(currentFolder, relativePath, content));
+                _layerViolations.AddRange(_layerViolationDetector.DetectLayerViolations(currentFolder, relativePath, content));
+    
+                _dependencyBuilder.PopulateFolderDependencies(currentFolder, content, _filesPerFolder, _folderDependencies);
 
-                CoreMethods.PopulateFolderDependencies(currentFolder, content, _filesPerFolder, _folderDependencies);
-
-                var classNames = CoreMethods.ExtractClassNames(content);
+                var classNames = _dependencyBuilder.ExtractClassNames(content);
 
                 foreach (var className in classNames)
                 {
