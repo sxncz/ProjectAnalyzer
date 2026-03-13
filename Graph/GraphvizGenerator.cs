@@ -1,9 +1,4 @@
 ﻿using ProjectAnalyzer.Services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ProjectAnalyzer.Graph
 {
@@ -30,27 +25,44 @@ namespace ProjectAnalyzer.Graph
 
             writer.WriteLine("digraph ProjectDependencies {");
             writer.WriteLine("rankdir=LR;");
-            writer.WriteLine("node [shape=box, style=filled, color=lightgray];");
+            writer.WriteLine("node [shape=box, style=filled, color=lightgray];");            
 
             foreach (var kvp in folderDependencies)
             {
                 var fromFolder = kvp.Key;
 
-                writer.WriteLine($"\"{fromFolder}\";");
+                var fromColor = (riskScores != null &&
+                                 riskScores.ContainsKey(fromFolder) &&
+                                 riskScores[fromFolder] >= riskThreshold)
+                    ? "orange"
+                    : "lightgray";
+
+                writer.WriteLine($"    \"{fromFolder}\" [fillcolor={fromColor}];");
 
                 foreach (var toFolder in kvp.Value)
                 {
-                    writer.WriteLine($"\"{fromFolder}\" -> \"{toFolder}\";");
+                    var edgeColor = (circularDependencies != null &&
+                                     circularDependencies.Any(c =>
+                                         c.Contains(fromFolder) && c.Contains(toFolder)))
+                        ? "red"
+                        : "black";
+
+                    writer.WriteLine($"    \"{fromFolder}\" -> \"{toFolder}\" [color={edgeColor}];");
                 }
             }
 
+            // --- File level ---
             if (fileDependencies != null)
             {
                 foreach (var kvp in fileDependencies)
                 {
+                    var fromFile = kvp.Key;
+                    writer.WriteLine($"    \"{fromFile}\" [fillcolor=lightblue];");
+
                     foreach (var toFile in kvp.Value)
                     {
-                        writer.WriteLine($"\"{kvp.Key}\" -> \"{toFile}\";");
+                        var edgeColor = "black";
+                        writer.WriteLine($"    \"{fromFile}\" -> \"{toFile}\" [color={edgeColor}];");
                     }
                 }
             }
@@ -59,10 +71,18 @@ namespace ProjectAnalyzer.Graph
             writer.Flush(); // ensure written
             writer.Close(); // force close
 
+            bool hasContent = (folderDependencies != null && folderDependencies.Count > 0) || (fileDependencies != null && fileDependencies.Count > 0);
+
+            if (!hasContent)
+            {
+                File.Delete(dotPath);
+                Console.WriteLine($"No dependencies found for {projectName}. Graph generation skipped.");
+                return;
+            }
+
             HelperMethods.ConvertDotToPng(dotPath, pngPath);
 
             Console.WriteLine($"Dependency diagram saved to: {pngPath}");
-
         }
 
         public void GenerateDatabaseGraph(
@@ -75,6 +95,8 @@ namespace ProjectAnalyzer.Graph
 
             var (dotPath, pngPath) = HelperMethods.GetGraphPaths(outputFolder, $"{projectName}_database_dependencies");
 
+            bool hasContent = false;
+
             using (var writer = new StreamWriter(dotPath))
             {
                 writer.WriteLine("digraph DatabaseDependencies {");
@@ -84,12 +106,20 @@ namespace ProjectAnalyzer.Graph
                     foreach (var table in kvp.Value)
                     {
                         writer.WriteLine($"\"{kvp.Key}\" -> \"{table}\";");
+                        hasContent = true;
                     }
                 }
 
                 writer.WriteLine("}");
                 writer.Flush(); // ensure written
                 writer.Close(); // force close
+            }
+
+            if (!hasContent)
+            {
+                File.Delete(dotPath);
+                Console.WriteLine($"No dependencies found for {projectName}. Graph generation skipped.");
+                return;
             }
 
             HelperMethods.ConvertDotToPng(dotPath, pngPath);

@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Xml.Serialization;
-
-namespace ProjectAnalzer.Core
+﻿namespace ProjectAnalzer.Core
 {
     public class ScanResult
     {

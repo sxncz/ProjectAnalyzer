@@ -1,4 +1,5 @@
-﻿using ProjectAnalyzer.Core;
+﻿using ProjectAnalyzer.AnalyzerPath;
+using ProjectAnalyzer.Core;
 using ProjectAnalyzer.Graph;
 using ProjectAnalyzer.LayerViolation;
 using ProjectAnalyzer.Reporter;
@@ -11,17 +12,22 @@ namespace ProjectAnalyzer.AnalysisStrategy
         private readonly IReporter _reporter;
         private readonly IGraphGenerator _graphGenerator;
         private readonly IDatabaseGraphGenerator _dbGraphGenerator;
-        public GranularAnalysis(IReporter reporter, IGraphGenerator graphGenerator, IDatabaseGraphGenerator dbGraphGenerator)
+        private readonly IAnalyzerPaths _analyzerPaths;
+        public GranularAnalysis(IReporter reporter, IGraphGenerator graphGenerator, IDatabaseGraphGenerator dbGraphGenerator, IAnalyzerPaths analyzerPaths)
         {
             _reporter = reporter;
             _graphGenerator = graphGenerator;
             _dbGraphGenerator = dbGraphGenerator;
+            _analyzerPaths = analyzerPaths;
         }
         public void Run(string path)
         {
-            var csprojFiles = Directory.GetFiles(path, "*.csproj", SearchOption.AllDirectories);
+            var csprojFiles = Directory.GetFiles(path, "*.csproj", SearchOption.AllDirectories);           
 
-            var dbDependencies = DatabaseScanner.BuildDatabaseDependencies(path);
+            var scanner = new ProjectScanner(new LayerViolationDetector(), new RiskCalculator.RiskCalculator(), new DependencyBuilder.DependencyBuilder());
+
+            var rootProjectName = new DirectoryInfo(path).Name;
+            var rootOutputFolder = _analyzerPaths.GetProjectOutputFolder(rootProjectName);
 
             foreach (var csproj in csprojFiles)
             {
@@ -30,20 +36,22 @@ namespace ProjectAnalyzer.AnalysisStrategy
                 if (projectFolder == null)
                     continue;
 
-                var scanner = new ProjectScanner(new LayerViolationDetector(), new RiskCalculator.RiskCalculator(), new DependencyBuilder.DependencyBuilder());
                 var result = scanner.Scan(projectFolder);
 
+                var dbDependencies = DatabaseScanner.BuildDatabaseDependencies(projectFolder);
                 result.DatabaseDependencies = dbDependencies;
 
                 _reporter.Print(result);
 
-                // Ensure FolderDependencies is not null before passing to GenerateDependencyGraph
-                var folderDependencies = result.FolderDependencies ?? new Dictionary<string, HashSet<string>>();
+                // Output folder for this specific csproj
+                var projectFolderName = new DirectoryInfo(projectFolder).Name;
+                var outputFolder = Path.Combine(rootOutputFolder, projectFolderName);
+                Directory.CreateDirectory(outputFolder);
 
                 _graphGenerator.GenerateDependencyGraph(
-                    outputFolder: AnalyzerPaths.GetProjectOutputFolder(result.ProjectName),
+                    outputFolder,
                     result.ProjectName,
-                    folderDependencies,
+                    result.FolderDependencies ?? new Dictionary<string, HashSet<string>>(), // Ensure FolderDependencies is not null before passing to GenerateDependencyGraph
                     result.FileDependencies,
                     result.CircularDependencies,
                     result.RiskScores,
@@ -52,13 +60,11 @@ namespace ProjectAnalyzer.AnalysisStrategy
 
                 _dbGraphGenerator.GenerateDatabaseGraph(
                     result.DatabaseDependencies,
-                    "Database",
-                    AnalyzerPaths.GetProjectOutputFolder("Database")
+                    result.ProjectName,
+                    outputFolder
                 );
 
                 var resultXml = XMLService.PrepareScanResultForXml(result);
-
-                var outputFolder = AnalyzerPaths.GetProjectOutputFolder(result.ProjectName);
 
                 var xmlPath = Path.Combine(outputFolder, $"{result.ProjectName}_ScanResult.xml");
                 XMLService.SaveScanResultToXml(resultXml, xmlPath);

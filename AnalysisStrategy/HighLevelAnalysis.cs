@@ -1,13 +1,9 @@
-﻿using ProjectAnalyzer.Core;
+﻿using ProjectAnalyzer.AnalyzerPath;
+using ProjectAnalyzer.Core;
 using ProjectAnalyzer.Graph;
 using ProjectAnalyzer.LayerViolation;
 using ProjectAnalyzer.Reporter;
 using ProjectAnalyzer.Services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ProjectAnalyzer.AnalysisStrategy
 {
@@ -16,12 +12,14 @@ namespace ProjectAnalyzer.AnalysisStrategy
         private readonly IReporter _reporter;
         private readonly IGraphGenerator _graphGenerator;
         private readonly IDatabaseGraphGenerator _dbGraphGenerator;
+        private readonly IAnalyzerPaths _analyzerPaths;
 
-        public HighLevelAnalysis(IReporter reporter, IGraphGenerator graphGenerator, IDatabaseGraphGenerator dbGraphGenerator)
+        public HighLevelAnalysis(IReporter reporter, IGraphGenerator graphGenerator, IDatabaseGraphGenerator dbGraphGenerator, IAnalyzerPaths analyzerPaths)
         {
             _reporter = reporter;
             _graphGenerator = graphGenerator;
             _dbGraphGenerator = dbGraphGenerator;
+            _analyzerPaths = analyzerPaths;
         }
 
         public void Run(string path)
@@ -40,8 +38,10 @@ namespace ProjectAnalyzer.AnalysisStrategy
             // Ensure FolderDependencies is not null before passing to GenerateDependencyGraph
             var folderDependencies = result.FolderDependencies ?? new Dictionary<string, HashSet<string>>();
 
+            var outputFolder = _analyzerPaths.GetProjectOutputFolder(result.ProjectName);
+
             _graphGenerator.GenerateDependencyGraph(
-                outputFolder: AnalyzerPaths.GetProjectOutputFolder(result.ProjectName),
+                outputFolder,
                 result.ProjectName,
                 folderDependencies,
                 result.FileDependencies,
@@ -49,9 +49,6 @@ namespace ProjectAnalyzer.AnalysisStrategy
                 result.RiskScores,
                 10.0
             );
-
-            var outputFolder =
-                AnalyzerPaths.GetProjectOutputFolder(result.ProjectName);
 
             _dbGraphGenerator.GenerateDatabaseGraph(
                 result.DatabaseDependencies,

@@ -1,4 +1,5 @@
 ﻿using ProjectAnalyzer.AnalysisStrategy;
+using ProjectAnalyzer.AnalyzerPath;
 using ProjectAnalyzer.Graph;
 using ProjectAnalyzer.Reporter;
 using ProjectAnalyzer.Services;
@@ -58,14 +59,16 @@ while (true)
     Console.WriteLine("Invalid choice. Please enter 1 or 2 or press CTRL + C to exit.\n");
 }
 
-IReporter reporter = new ProjectAnalyzer.Reporter.ConsoleReporter();
+IAnalyzerPaths analyzerPaths = new AnalyzerPaths();
+
+IReporter reporter = new ConsoleReporter();
 IGraphGenerator graphGenerator = new GraphvizGenerator();
 IDatabaseGraphGenerator dbGraphGenerator = (IDatabaseGraphGenerator)graphGenerator;
 
 IAnalysisStrategy strategy = choice switch
 {
-    "1" => new HighLevelAnalysis(reporter, graphGenerator, dbGraphGenerator),
-    "2" => new GranularAnalysis(reporter, graphGenerator, dbGraphGenerator),
+    "1" => new HighLevelAnalysis(reporter, graphGenerator, dbGraphGenerator, analyzerPaths),
+    "2" => new GranularAnalysis(reporter, graphGenerator, dbGraphGenerator, analyzerPaths),
     _ => throw new Exception()
 };
 

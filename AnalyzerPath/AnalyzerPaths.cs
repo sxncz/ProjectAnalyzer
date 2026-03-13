@@ -1,16 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ProjectAnalyzer.Core
+﻿namespace ProjectAnalyzer.AnalyzerPath
 {
-    public static class AnalyzerPaths
+    public class AnalyzerPaths : IAnalyzerPaths
     {
         public const string OutputFolder = @"C:\ProjectAnalyzer\AnalysisOutput";
 
-        public static string GetProjectOutputFolder(string projectName)
+        public string GetProjectOutputFolder(string projectName)
         {
             foreach (var c in Path.GetInvalidFileNameChars())
                 projectName = projectName.Replace(c, '_');

@@ -6,17 +6,6 @@ namespace ProjectAnalyzer.Reporter
     {
         public void Print(ScanResult result)
         {
-            //Console.WriteLine($"Project: {result.ProjectName}");
-            //Console.WriteLine($"Files scanned: {result.FileDependencies.Count}");
-
-            //if (result.CircularDependencies.Any())
-            //{
-            //    Console.WriteLine("Circular Dependencies:");
-            //    foreach (var dep in result.CircularDependencies)
-            //    {
-            //        Console.WriteLine(dep);
-            //    }
-            //}
 
             Console.WriteLine();
             Console.WriteLine($"Project: {result.ProjectName}");

@@ -17,23 +17,23 @@ namespace ProjectAnalyzer.Services
 
         private readonly List<(string Path, long Size)> _csFiles = new();
 
-        private Dictionary<string, int> _filesPerFolder = new();
+        private readonly Dictionary<string, int> _filesPerFolder = new();
 
-        private Dictionary<string, int> _classesPerFile = new();
+        private readonly Dictionary<string, int> _classesPerFile = new();
 
-        private Dictionary<string, int> _methodsPerFile = new();
+        private readonly Dictionary<string, int> _methodsPerFile = new();
 
-        private Dictionary<string, int> _linesPerFile = new();
+        private readonly Dictionary<string, int> _linesPerFile = new();
 
-        private List<string> _layerViolations = new();
+        private readonly List<string> _layerViolations = new();
 
-        private Dictionary<string, HashSet<string>> _folderDependencies = new();
+        private readonly Dictionary<string, HashSet<string>> _folderDependencies = new();
 
-        private Dictionary<string, HashSet<string>> _fileDependencies = new();
+        private readonly Dictionary<string, HashSet<string>> _fileDependencies = new();
 
-        private Dictionary<string, string> _classToFileMap = new();
+        private readonly Dictionary<string, string> _classToFileMap = new();
 
-        public Dictionary<string, HashSet<string>> _databaseDependencies = new();
+        public readonly Dictionary<string, HashSet<string>> _databaseDependencies = new();
 
         private string _rootPath = string.Empty;
 
@@ -59,6 +59,19 @@ namespace ProjectAnalyzer.Services
 
         public ScanResult Scan(string rootPath)
         {
+            ResetState();
+
+            _rootPath = rootPath;
+
+            var projectName = new DirectoryInfo(rootPath).Name;
+
+            ScanDirectory(rootPath, 0);
+
+            return BuildResult(projectName);
+        }
+
+        private void ResetState()
+        {
             _folderCount = 0;
             _deepestLevel = 0;
 
@@ -72,14 +85,11 @@ namespace ProjectAnalyzer.Services
             _fileDependencies.Clear();
             _classToFileMap.Clear();
             _databaseDependencies.Clear();
+        }
 
-            _rootPath = rootPath;
-
-            var projectName = new DirectoryInfo(rootPath).Name;
-
-            ScanDirectory(rootPath, 0);
-
-            var result = new ScanResult
+        private ScanResult BuildResult(string projectName)
+        {
+            return new ScanResult
             {
                 ProjectName = projectName,
                 TotalCsFiles = _csFiles.Count,
@@ -97,8 +107,6 @@ namespace ProjectAnalyzer.Services
                 RiskScores = _riskCalculator.CalculateRiskScores(_csFiles, _linesPerFile, _methodsPerFile, _classesPerFile),
                 DatabaseDependencies = _databaseDependencies,
             };
-
-            return result;
         }
 
         private void ScanDirectory(string path, int currentLevel)
@@ -113,50 +121,55 @@ namespace ProjectAnalyzer.Services
 
             foreach (var file in Directory.GetFiles(path, "*.cs"))
             {
-                var info = new FileInfo(file);
-                var relativePath = Path.GetRelativePath(_rootPath, file);
-                var folderName = new DirectoryInfo(path).Name;
-
-                _csFiles.Add((relativePath, info.Length));
-
-                if (!_filesPerFolder.ContainsKey(folderName))
-                    _filesPerFolder[folderName] = 0;
-
-                _filesPerFolder[folderName]++;
-
-                var content = File.ReadAllText(file);
-
-                int classCount =
-                    HelperMethods.CountKeyword(content, "class ") +
-                    HelperMethods.CountKeyword(content, "interface ") +
-                    HelperMethods.CountKeyword(content, "record ");
-
-                _classesPerFile[relativePath] = classCount;
-
-                int methodCount = HelperMethods.CountMethods(content);
-                _methodsPerFile[relativePath] = methodCount;
-
-                var lines = content.Length;
-                _linesPerFile[relativePath] = lines;
-
-                var currentFolder = new DirectoryInfo(path).Name;
-
-                _layerViolations.AddRange(_layerViolationDetector.DetectLayerViolations(currentFolder, relativePath, content));
-    
-                _dependencyBuilder.PopulateFolderDependencies(currentFolder, content, _filesPerFolder, _folderDependencies);
-
-                var classNames = _dependencyBuilder.ExtractClassNames(content);
-
-                foreach (var className in classNames)
-                {
-                    if (!_classToFileMap.ContainsKey(className))
-                        _classToFileMap[className] = relativePath;
-                }
+                ProcessFile(file);
             }
 
             foreach (var dir in Directory.GetDirectories(path))
             {
                 ScanDirectory(dir, currentLevel + 1);
+            }
+        }
+
+        private void ProcessFile(string file)
+        {
+            var info = new FileInfo(file);
+            var relativePath = Path.GetRelativePath(_rootPath, file);
+            var folderName = new DirectoryInfo(Path.GetDirectoryName(file)!).Name;
+
+            _csFiles.Add((relativePath, info.Length));
+
+            if (!_filesPerFolder.ContainsKey(folderName))
+                _filesPerFolder[folderName] = 0;
+
+            _filesPerFolder[folderName]++;
+
+            var content = File.ReadAllText(file);
+
+            int classCount =
+                HelperMethods.CountKeyword(content, "class ") +
+                HelperMethods.CountKeyword(content, "interface ") +
+                HelperMethods.CountKeyword(content, "record ");
+
+            _classesPerFile[relativePath] = classCount;
+
+            int methodCount = HelperMethods.CountMethods(content);
+            _methodsPerFile[relativePath] = methodCount;
+
+            var lines = content.Length;
+            _linesPerFile[relativePath] = lines;
+
+            var currentFolder = folderName;
+
+            _layerViolations.AddRange(_layerViolationDetector.DetectLayerViolations(currentFolder, relativePath, content));
+
+            _dependencyBuilder.PopulateFolderDependencies(currentFolder, content,  _filesPerFolder, _folderDependencies);
+
+            var classNames = _dependencyBuilder.ExtractClassNames(content);
+
+            foreach (var className in classNames)
+            {
+                if (!_classToFileMap.ContainsKey(className))
+                    _classToFileMap[className] = relativePath;
             }
         }
     }
